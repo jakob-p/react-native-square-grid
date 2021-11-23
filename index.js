@@ -1,124 +1,190 @@
-import React, {Component} from "react";
-import PropTypes from "prop-types";
-import {
-	View,
-	StyleSheet,
-	ScrollView,
-} from "react-native";
+/*
+Component to render multiple items as a grid of squares.
+The maximum size of squares still fitting on the screen is calculated.
+The remaining space to the top, bottom and sides is filled out with a padding.
+Verical Scrolling can be enabled by setting rows={0}
 
-var styles = StyleSheet.create({
-	gridContainer: {
-		flex: 1,
-		alignSelf: "stretch",
-		flexWrap: "wrap",
-		flexDirection: "row"
-	},
-	scrollContainer: {
-		flex: 1
-	}
+example usage for a 2x2 grid of squares:
+ <SquareGrid
+      rows={2}
+      columns={2}
+      items={[
+        <Text>Text</Text>,
+        <View>View</View>,
+        <Image />,
+        <Text>Text</Text>
+      ]}
+    />
+*/
+
+import React, { Component } from "react";
+import PropTypes from "prop-types";
+import { View, StyleSheet, ScrollView } from "react-native";
+
+// container styles
+const styles = StyleSheet.create({
+  item: {
+    flex: 1,
+    padding: 1,
+  },
+  content: {
+    flex: 1,
+    position: "relative",
+    // borderColor: "black",
+    // borderWidth: 1,
+  },
+  stretch: {
+    position: "absolute",
+    height: "100%",
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gridContainer: {
+    width: "100%",
+    height: "100%",
+    flex: 1,
+    flexWrap: "wrap",
+    flexDirection: "row",
+    // backgroundColor: "darkgrey",
+  },
+  scrollContainer: {
+    flex: 1,
+  },
 });
 
 export default class SquareGrid extends Component {
-	constructor(props){
-		super(props);
+  constructor(props) {
+    super(props);
 
-		this.state = {
-			width: 0,
-			height: 0
-		};
+    this.state = {
+      width: 0,
+      height: 0,
+    };
 
-		this._handleLayout = handleLayout.bind(this);
-	}
+    this._handleLayout = handleLayout.bind(this);
+  }
 
-	render() {
-		var props = this.props;
-		var state = this.state;
+  render() {
+    let props = this.props;
+    let state = this.state;
 
-		var width = state.width - 2;
-		var height = state.height - 2;
+    let width = state.width - 2;
+    let height = state.height - 2;
 
-		var items = props.items;
-		var renderItem = props.renderItem;
+    let items = props.items;
 
-		var rows = props.rows || 0;
-		var columns = props.columns || 0;
+    let rows = props.rows || 0;
+    let columns = props.columns || 0;
+    let stretch = props.stretch || false;
+    let itemMargin = props.itemMargin || 0;
 
-		if(!rows && !columns) {
-			console.error("Must specify number of rows or columns");
-			return (<View />);
-		} else if(!columns) {
-			console.error("Must specify number of columns");
-			return (<View />);
-		}
+    if (!rows && !columns) {
+      console.error("Must specify number of rows or columns");
+      return <View />;
+    } else if (!columns) {
+      console.error("Must specify number of columns");
+      return <View />;
+    }
 
-		var marginHorizontal = 0;
-		var marginVertical = 0;
-		var size;
+    let marginHorizontal = 0;
+    let marginVertical = 0;
+    let size;
 
-		var isScrolling = !rows;
+    // if 0 rows are passed, full width vertical scrolling is used
+    let isScrolling = !rows;
+    if (isScrolling) {
+      size = Math.floor(width / columns);
+    } else {
+      size = Math.min(width / columns, height / rows);
+      marginHorizontal = Math.floor((width - size * columns) / 2);
+      marginVertical = Math.floor((height - size * rows) / 2);
+      size = Math.floor(size);
+    }
 
-		if(isScrolling) {
-			size = Math.floor(width / columns);
-		} else {
-			size = Math.min(width / columns, height / rows);
+    let itemStyle = {
+      width: size,
+      height: size,
+    };
 
-			marginHorizontal = Math.floor((width - (size * columns)) / (2 * columns));
-			marginVertical = Math.floor((height - (size * rows)) / (2 * rows));
+    // for the non-scrolling SquareGrid a padding
+    let containerStyle = {
+      paddingHorizontal: stretch ? 0 : marginHorizontal,
+      paddingVertical: marginVertical,
+    };
 
-			size = Math.floor(size);
-		}
+    // if stretch prop is set true, add a margin to the left and right so the items are aligned stretched
+    if (stretch) {
+      itemStyle.marginHorizontal = marginHorizontal / columns;
+    }
 
-		var itemStyle = {
-			width: size,
-			height: size,
-			marginHorizontal: marginHorizontal,
-			marginVertical: marginVertical
-		};
+    if (itemMargin !== 0) {
+      itemStyle.padding = itemMargin;
+    }
 
-		var maxItems = isScrolling ? Infinity : (rows * columns);
+    // display a maximum of rows*columns items or infinite for scrolling
+    let maxItems = isScrolling ? Infinity : rows * columns;
 
-		var toRender = items.slice(0, maxItems);
+    // items to render
+    let toRender = items.slice(0, maxItems);
+    let renderedItems = toRender.map(function (item, index) {
+      return (
+        <View key={index}>
+          <View style={itemStyle}>{renderItem(item, index)}</View>
+        </View>
+      );
+    });
 
-		var renderedItems = toRender.map(function(item, index){
-			return (
-				<View key={index} style={itemStyle}>
-					{renderItem(item, index)}
-				</View>
-			);
-		});
+    // scrolling SquareGrid
+    if (isScrolling) {
+      return (
+        <ScrollView style={styles.scrollContainer}>
+          <View style={styles.gridContainer} onLayout={this._handleLayout}>
+            {renderedItems}
+          </View>
+        </ScrollView>
+      );
+    }
 
-		if(isScrolling) return (
-			<ScrollView style={styles.scrollContainer}>
-				<View style={styles.gridContainer} onLayout={this._handleLayout}>
-					{renderedItems}
-				</View>
-			</ScrollView>
-		);
+    // non scrolling SquareGrid
+    return (
+      <View
+        style={[styles.gridContainer, containerStyle]}
+        onLayout={this._handleLayout}
+      >
+        {renderedItems}
+      </View>
+    );
+  }
+}
 
-		return (
-			<View style={styles.gridContainer} onLayout={this._handleLayout}>
-				{renderedItems}
-			</View>
-		);
-	}
+// creates the rendered item and centers it
+function renderItem(item) {
+  return (
+    <View style={[styles.item]}>
+      <View style={styles.content}>
+        <View style={styles.stretch}>{item}</View>
+      </View>
+    </View>
+  );
 }
 
 SquareGrid.propTypes = {
-	rows: PropTypes.number,
-	columns: PropTypes.number,
-
-	items: PropTypes.arrayOf(PropTypes.any).isRequired,
-	renderItem: PropTypes.func.isRequired
+  rows: PropTypes.number,
+  columns: PropTypes.number,
+  items: PropTypes.arrayOf(PropTypes.any).isRequired,
+  stretch: PropTypes.bool,
+  itemMargin: PropTypes.number,
 };
 
 function handleLayout(event) {
-	var nativeEvent = event.nativeEvent;
-	var layout = nativeEvent.layout;
-	var width = layout.width;
-	var height = layout.height;
+  let nativeEvent = event.nativeEvent;
+  let layout = nativeEvent.layout;
+  let width = layout.width;
+  let height = layout.height;
 
-	this.setState({
-		width: width,
-		height: height
-	});
+  this.setState({
+    width: width,
+    height: height,
+  });
 }
